@@ -1,0 +1,44 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["filteredRelationCount"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Member {
+  code         String
+  name         String
+  is_penalized Boolean       @default(false)
+  penalized_at DateTime?
+  Transaction  Transaction[]
+
+  @@id([code])
+}
+
+model Book {
+  code        String
+  title       String
+  author      String
+  stock       Int
+  Transaction Transaction[]
+
+  @@id([code])
+}
+
+model Transaction {
+  member      Member    @relation(fields: [member_id], references: [code])
+  member_id   String
+  book        Book      @relation(fields: [book_id], references: [code])
+  book_id     String
+  is_returned Boolean
+  borrow_date DateTime?
+  return_date DateTime?
+
+  @@unique([book_id, member_id])
+}
