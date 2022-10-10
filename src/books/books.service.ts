@@ -62,7 +62,35 @@ export class BooksService {
       where: { code: bookId },
     });
 
-    console.log(bookInStock.stock);
+    const isMemberBlocked = await this.prisma.member.findFirst({
+      where: { code: memberId, is_penalized: true },
+    });
+
+    if (isMemberBlocked) {
+      const penaltyDays = dayjs().diff(
+        dayjs(isMemberBlocked.penalized_at),
+        'day',
+      );
+
+      if (penaltyDays > 3) {
+        await this.prisma.member.update({
+          where: {
+            code: memberId,
+          },
+          data: {
+            is_penalized: false,
+            penalized_at: null,
+          },
+        });
+      }
+
+      if (penaltyDays >= 3) {
+        return `You are penalized, you can't borrow book for couple days`;
+      }
+    }
+
+    // if (isMemberBlocked.is_penalized && penaltyDays > )
+
     if (bookInStock.stock <= 0) {
       return 'Book already borrowed';
     }
@@ -135,7 +163,7 @@ export class BooksService {
     if (diff > 3) {
       await this.prisma.member.update({
         where: { code: memberId },
-        data: { is_penalized: true },
+        data: { is_penalized: true, penalized_at: new Date().toISOString() },
       });
       isUserPenalized = true;
     }

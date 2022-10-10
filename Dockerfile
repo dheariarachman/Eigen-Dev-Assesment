@@ -1,40 +1,27 @@
-# Using node for Development use
-FROM node:18-alpine as development
+FROM node:16-alpine AS builder
 
-# use /usr/src/app for WORKDIR
-WORKDIR /usr/src/app
+# Create app directory
+WORKDIR /app
 
-COPY --chown=node:node package*.json ./
+# A wildcard is used to ensure both package.json AND package-lock.json are copied
+COPY package*.json ./
+COPY prisma ./prisma/
 
-RUN npm ci
+# Install app dependencies
+RUN npm install
+# Generate prisma client, leave out if generating in `postinstall` script
+RUN npx prisma generate
 
-COPY --chown=node:node . . 
-
-USER node
-
-# Using node for Build use
-FROM node:18-alpine as build
-
-WORKDIR /usr/src/app
-
-COPY --chown=node:node package*.json ./
-
-COPY --chown=node:node --from=development /usr/src/app/node_modules ./node_modules
-
-COPY --chown=node:node . .
+COPY . .
 
 RUN npm run build
 
-ENV NODE_ENV production
+FROM node:16-alpine
+WORKDIR /app
 
-RUN npm ci --only=production && npm cache clean --force
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/dist ./dist
 
-USER node
-
-# Using node for Production use
-FROM node:18-alpine as production
-
-COPY --chown=node:node --from=build /usr/src/app/node_modules ./node_modules
-COPY --chown=node:node --from=build /usr/src/app/dist ./dist
-
-CMD ["node", "dist/main"]
+EXPOSE 3000
+CMD ["npm", "run", "start:prod"]
